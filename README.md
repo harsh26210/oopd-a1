@@ -2,32 +2,35 @@
 
 This repository contains my implementation of Assignment 1 for Object-Oriented Programming and Design (OOPD), Monsoon 2026.
 
-The main purpose of this assignment was to understand how a C++ program works at a lower level when the usual C/C++ runtime and standard libraries are not used. The programs were built using C++, NASM assembly, and direct Linux system calls.
+The main purpose of this assignment is to understand how a C++ program works at a lower level when the usual C/C++ runtime and standard libraries are not used. The programs are implemented using C++, NASM assembly and direct Linux system calls.
 
 ## Q2 - Basic C++ Program Without Standard Libraries
 
-The first program is `hello.cpp`. It contains a minimal `main()` function which simply returns 0.
+Q2 starts with a very simple C++ program, `MT26210_hello.cpp`, whose `main()` function only returns 0.
 
-The main objective of this question was to understand how a C++ program can be compiled and linked without using the normal standard library files.
+The purpose of this question is to understand how a C++ program can be compiled and linked without the normal C/C++ library files.
 
-The build process uses:
+The build process is placed in `MT26210_build_q2.sh`.
 
-- `g++ -c` to compile the C++ source into an object file.
-- `nasm -f elf64` to assemble `syscall.S`.
-- `-nostdlib` while linking, so the normal C/C++ standard libraries and startup files are not linked.
-- `-no-pie` to build the executable without position-independent executable support, which keeps the linking process compatible with the custom `_start` entry point used in the assembly file.
+The main options and commands used are:
 
-The assembly file provides `_start`, which calls `main`, and then uses the Linux `exit` system call to terminate the program.
+- `g++ -c` compiles the C++ source into an object file.
+- `nasm -f elf64` assembles the supplied `syscall.S` file.
+- `-nostdlib` prevents the normal startup files and standard libraries from being used during linking.
+- `-no-pie` is used so that the executable can be linked with the custom `_start` entry point provided by the assembly file.
+- `-fno-stack-protector` prevents the compiler from generating a dependency on runtime functions such as `__stack_chk_fail`, which cannot be used when the standard libraries are excluded.
 
-`-fno-stack-protector` is used for the programs that contain C++ functions because the compiler can otherwise insert stack-protection code which depends on runtime library functions such as `__stack_chk_fail`. Since the assignment does not allow the standard C/C++ libraries, this compiler-generated dependency is disabled.
+The supplied assembly file provides `_start`. It calls `main()` and then uses the Linux `exit` system call to terminate the program.
 
-## Q3 - Input and Confirmation Using Direct System Calls
+## Q3 - Input, Output and Confirmation
 
-In Q3, the program was extended to ask the user for their name and age and then ask for confirmation using `y` or `n`.
+Q3 extends the basic program so that the user can enter their name and age and then confirm the entered information using `y` or `n`.
 
-The program does not use `iostream`, `stdio`, `string`, or other standard C/C++ libraries. Instead, input and output are performed through Linux system calls.
+The main program is `MT26210_main.cpp` and its build process is provided in `MT26210_build_q3.sh`.
 
-The `basicIO` class provides functions such as:
+Standard C/C++ input and output libraries are not used. Instead, the `basicIO` class provides functions for input, output and error messages using direct Linux system calls.
+
+Examples of the functions used include:
 
 - `inputint()` for reading an integer.
 - `inputstring()` for reading a string.
@@ -35,66 +38,81 @@ The `basicIO` class provides functions such as:
 - `outputstring()` for displaying text.
 - `errorstring()` for displaying error messages.
 
-The actual system-call interface is provided by `syscall.S`.
+The supplied `syscall.S` file provides the assembly interface used by the C++ code to perform Linux system calls.
 
-Input validation was also added. For example, the age is checked to make sure that it is within a valid range, and the confirmation input is checked for `y` or `n`.
+Input validation is included for the entered name, age and confirmation choice.
 
-The `nasm` assembler is required to build the `.S` file, as specified in the assignment.
+The `nasm` assembler is used to assemble the supplied `.S` file.
 
-## Q4 - Dynamic Number of Names and Overflow Prevention
+## Q4 - Dynamic Number of Names
 
-Q4 extends the previous program so that the user first specifies how many names are required.
+Q4 extends the Q3 program so that the user first enters the number of names required.
 
-Instead of using C++ dynamic allocation through `new`, memory is allocated directly using the Linux `mmap` system call. This keeps the implementation independent of the standard C++ library.
+The program is implemented in `MT26210_main2.cpp` and uses `MT26210_basicIO2.cpp`.
 
-Each name is given a fixed maximum size of 100 bytes. The total memory requested is calculated as:
+Instead of using C++ dynamic allocation through `new`, memory is allocated directly using the Linux `mmap` system call. The allocated memory is released using `munmap`.
+
+Each name is given a fixed maximum size of 100 bytes. Therefore, the required memory is calculated using:
 
     numberOfNames * MAX_NAME_LENGTH
 
-A maximum limit on the number of names is also checked before allocation. This prevents an unreasonable number of names from being requested.
+The number of names is also checked against a maximum limit before memory allocation.
 
-The input function was improved so that a name cannot overflow its allocated space. Only the allowed number of characters is stored, while any remaining characters from an excessively long input are consumed until the newline. This prevents leftover characters from interfering with the next input.
+The string input function ensures that a name cannot exceed its allocated space. If the user enters more characters than the allowed size, the extra characters are discarded until the end of the input line. This prevents overflow and prevents leftover input from affecting the next name.
 
-The allocated memory is released using the Linux `munmap` system call after it is no longer required.
+The Q4 build process is provided in `MT26210_build_q4.sh`.
 
-Q4 was implemented in `main2.cpp` and was committed on a separate Git branch as required by the assignment.
+Q4 is committed on the separate `q4` branch as required by the assignment.
 
 ## Q5 - Changing the Number of Names
 
 Q5 extends Q4 by allowing the user to change the number of names after the first set of names has been entered.
 
-If the user chooses `y`, a new number of names is requested. The previously allocated memory is first released using `munmap`, and a new memory region is then allocated using `mmap` based on the new number of names.
+The program is implemented in `MT26210_main3.cpp` and its build process is provided in `MT26210_build_q5.sh`.
 
-The new names are then entered into the newly allocated memory.
+If the user chooses to change the number of names, the old memory allocation is released using `munmap`. A new memory region is then allocated using `mmap` according to the new number of names.
 
-The program also validates the new number of names before performing the new allocation. This prevents invalid values from being used.
+The new number of names is validated before the new memory allocation is performed.
 
-Q5 is implemented in `main3.cpp` as an additional commit on the Q4 branch.
+Q5 is added as a new commit on the Q4 branch.
 
 ## Assembly System Call Interface
 
-The `syscall.S` file provides wrappers around Linux system calls.
+The supplied `syscall.S` file provides wrappers for Linux system calls.
 
-`syscall3` is used when a system call requires up to three arguments, while `syscall6` supports system calls with up to six arguments.
+`syscall3` is used for system calls requiring up to three arguments, while `syscall6` supports system calls requiring up to six arguments.
 
-The assembly code converts the C++ function arguments into the registers expected by the x86-64 Linux system-call convention and then executes the `syscall` instruction.
+The assembly code places the system call number and its arguments into the registers required by the x86-64 Linux system-call convention and executes the `syscall` instruction.
 
-This allows the C++ programs to perform input, output, memory allocation, memory release, and program termination without relying on standard C/C++ libraries.
+This allows the C++ programs to perform input, output, memory allocation, memory deallocation and program termination without using the standard C/C++ libraries.
 
 ## Build Scripts
 
-Separate shell scripts are provided for each stage:
+Separate shell scripts are provided for the different stages of the assignment:
 
-- `build_q2.sh` - builds Q2.
-- `build_q3.sh` - builds Q3.
-- `build_q4.sh` - builds Q4.
-- `build_q5.sh` - builds Q5.
+- `MT26210_build_q2.sh` - builds Q2.
+- `MT26210_build_q3.sh` - builds Q3.
+- `MT26210_build_q4.sh` - builds Q4.
+- `MT26210_build_q5.sh` - builds Q5.
 
-The scripts contain the compilation, assembly, and linking commands required to reproduce each program.
+The scripts contain the compilation, assembly and linking commands required to reproduce the corresponding programs.
 
+A `Makefile` is also included to provide a standard way to build the programs.
+
+Object files and generated executable files are not part of the repository because the assignment requires that binary or library files must not be committed.
+
+## File Naming
+
+The files written as part of the assignment follow the required roll-number naming convention:
+
+    MT26210_NameOfTheFile.extension
+
+The supplied files retain their original names. `README.md` and `Makefile` also retain their standard names.
+
+The required roll number and name are included as comments at the beginning of the applicable files.
 
 ## Use of AI as a Learning Aid
 
-AI tools  were used during the development process as a learning and debugging aid. This was used to understand compiler and linker options, Linux system calls, assembly instructions, memory allocation concepts, Git/GitHub procedures, and errors encountered during compilation or testing.
+AI tools were used as a learning and debugging aid during the development of this assignment. They were used to understand compiler and linker options, Linux system calls, assembly instructions, memory allocation concepts, Git/GitHub procedures and errors encountered during compilation and testing.
 
-The submitted programs were developed and understood through the implementation and understanding the commands of testing process by myself. AI was used to explain concepts, commands, errors, and possible approaches rather than simply generating the assignment solutions 
+The concepts, commands and implementation were studied and tested during the development process. AI was used to understands concepts and errors and to help understand possible approaches.
